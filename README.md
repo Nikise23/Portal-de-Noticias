@@ -6,7 +6,7 @@ Backend API para un blog interactivo desarrollado con Node.js, Express y MongoDB
 
 - **Materia**: Arquitectura Web
 - **Proyecto**: Blog Interactivo
-- **Desarrollador**: [Tu Nombre]
+- **Desarrollador**: Nicolas Fernandez
 - **Rol**: Backend Developer
 - **Stack**: Node.js + Express + MongoDB Atlas
 - **Patrón**: MVC (Model-View-Controller)

@@ -37,3 +37,4 @@ router.get('/tag/:tag', getArticlesByTag);
 router.get('/:slug', getArticleBySlug);
 
 module.exports = router;
+

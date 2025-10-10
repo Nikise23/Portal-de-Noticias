@@ -396,3 +396,4 @@ Los endpoints se documentan usando anotaciones JSDoc:
 ---
 
 **Desarrollado para Arquitectura Web - TP Blog Interactivo**
+
