@@ -1,4 +1,5 @@
 const Article = require('../models/Article');
+const Like = require('../models/Like');
 
 /**
  * Controlador para manejar todas las operaciones relacionadas con artículos
@@ -244,9 +245,18 @@ const getArticleBySlug = async (req, res) => {
     // Agregar 1 a las vistas para la respuesta actual
     article.viewsCount += 1;
 
+    // Verificar si el usuario actual dio like (si está autenticado)
+    let userLiked = false;
+    if (req.user) {
+      userLiked = await Like.userLikedArticle(req.user._id, article._id);
+    }
+
     res.json({
       success: true,
-      data: { article }
+      data: { 
+        article,
+        userLiked // Información adicional para el frontend
+      }
     });
 
   } catch (error) {
@@ -568,6 +578,185 @@ const getBlogStats = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/articles/{slug}/like:
+ *   post:
+ *     summary: Dar o quitar like a un artículo
+ *     description: Permite a usuarios autenticados dar o quitar like a un artículo
+ *     tags: [Articles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Slug del artículo
+ *     responses:
+ *       200:
+ *         description: Like actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     liked:
+ *                       type: boolean
+ *                       description: Si el usuario dio like o no
+ *                     likesCount:
+ *                       type: integer
+ *                       description: Número total de likes
+ *       401:
+ *         description: No autenticado
+ *       404:
+ *         description: Artículo no encontrado
+ */
+const toggleLike = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const userId = req.user._id;
+
+    // Buscar el artículo por slug
+    const article = await Article.findOne({ slug });
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Artículo no encontrado'
+      });
+    }
+
+    // Toggle like usando el método del modelo
+    const result = await Like.toggleLike(userId, article._id);
+
+    // Actualizar contador de likes en el artículo
+    const likesCount = await Like.countLikesForArticle(article._id);
+    await Article.findByIdAndUpdate(article._id, { likesCount });
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        liked: result.liked,
+        likesCount,
+        action: result.action
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al toggle like:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'Error al procesar el like'
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/articles/{slug}/likes:
+ *   get:
+ *     summary: Obtener usuarios que dieron like a un artículo
+ *     description: Obtiene la lista de usuarios que dieron like a un artículo
+ *     tags: [Articles]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Slug del artículo
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Número máximo de likes a mostrar
+ *     responses:
+ *       200:
+ *         description: Lista de likes obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     likes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           userId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     totalLikes:
+ *                       type: integer
+ *       404:
+ *         description: Artículo no encontrado
+ */
+const getArticleLikes = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { limit = 10 } = req.query;
+
+    // Buscar el artículo por slug
+    const article = await Article.findOne({ slug });
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Artículo no encontrado'
+      });
+    }
+
+    // Obtener likes del artículo
+    const likes = await Like.getLikesForArticle(article._id, parseInt(limit));
+    const totalLikes = await Like.countLikesForArticle(article._id);
+
+    res.json({
+      success: true,
+      message: 'Likes obtenidos exitosamente',
+      data: {
+        likes,
+        totalLikes
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener likes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'Error al obtener likes del artículo'
+    });
+  }
+};
+
 module.exports = {
   getAllArticles,
   getArticleBySlug,
@@ -575,6 +764,8 @@ module.exports = {
   getPopularArticles,
   getArticlesByTag,
   getAllTags,
-  getBlogStats
+  getBlogStats,
+  toggleLike,
+  getArticleLikes
 };
 

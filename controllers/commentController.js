@@ -48,6 +48,49 @@ const Article = require('../models/Article');
  *         content:
  *           application/json:
  *             schema:
+ *   post:
+ *     summary: Agregar comentario a un artículo
+ *     description: Permite a usuarios autenticados o anónimos agregar comentarios
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Slug único del artículo
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 minLength: 10
+ *                 maxLength: 1000
+ *                 description: Contenido del comentario
+ *               parentCommentId:
+ *                 type: string
+ *                 description: ID del comentario padre (para respuestas)
+ *               author:
+ *                 type: string
+ *                 description: Nombre del autor (solo para comentarios anónimos)
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del autor (solo para comentarios anónimos)
+ *     responses:
+ *       201:
+ *         description: Comentario agregado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
  *               type: object
  *               properties:
  *                 success:
@@ -238,22 +281,13 @@ const getCommentsForArticle = async (req, res) => {
 const addComment = async (req, res) => {
   try {
     const { slug } = req.params;
-    const { author, email, content, parentCommentId } = req.body;
+    const { content, parentCommentId } = req.body;
 
     // Validar campos requeridos
-    if (!author || !email || !content) {
+    if (!content) {
       return res.status(400).json({
         success: false,
-        message: 'Todos los campos son obligatorios: author, email, content'
-      });
-    }
-
-    // Validar formato de email
-    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Formato de email inválido'
+        message: 'El contenido del comentario es obligatorio'
       });
     }
 
@@ -287,18 +321,49 @@ const addComment = async (req, res) => {
     }
 
     // Crear nuevo comentario
-    const newComment = new Comment({
+    const commentData = {
       articleId: article._id,
-      author: author.trim(),
-      email: email.toLowerCase().trim(),
       content: content.trim(),
       parentCommentId: parentCommentId || null
-    });
+    };
 
+    // Si el usuario está autenticado, usar su información
+    if (req.user) {
+      commentData.userId = req.user._id;
+      commentData.author = req.user.name;
+      commentData.email = req.user.email;
+    } else {
+      // Para comentarios anónimos, requerir author y email
+      const { author, email } = req.body;
+      
+      if (!author || !email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Para comentarios anónimos, author y email son obligatorios'
+        });
+      }
+
+      // Validar formato de email
+      const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Formato de email inválido'
+        });
+      }
+
+      commentData.author = author.trim();
+      commentData.email = email.toLowerCase().trim();
+    }
+
+    const newComment = new Comment(commentData);
     const savedComment = await newComment.save();
 
     // Populate para obtener información completa
     await savedComment.populate('articleId', 'title slug');
+    if (savedComment.userId) {
+      await savedComment.populate('userId', 'name email avatar');
+    }
 
     res.status(201).json({
       success: true,

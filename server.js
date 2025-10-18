@@ -8,6 +8,7 @@ const connectDB = require('./config/db');
 // Importar rutas
 const articleRoutes = require('./routes/articleRoutes');
 const commentRoutes = require('./routes/commentRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -264,6 +265,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 }));
 
 // Rutas principales
+app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api', commentRoutes);
 

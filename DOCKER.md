@@ -1,4 +1,3 @@
-
 # Guía de Docker - Blog Interactivo Backend
 
 ## 📋 Información del Proyecto
@@ -6,7 +5,7 @@
 - **Proyecto**: Blog Interactivo Backend
 - **Materia**: Arquitectura Web
 - **Stack**: Node.js + Express + MongoDB Atlas
-- **Desarrollador**: Nicolas Fernandez
+- **Desarrollador**: 
 - **Containerización**: Docker + Docker Compose
 
 ## 🐳 ¿Por qué Docker?
@@ -665,3 +664,5 @@ services:
 ---
 
 **Desarrollado para Arquitectura Web - TP Blog Interactivo**
+
+

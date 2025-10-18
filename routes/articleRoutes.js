@@ -7,8 +7,11 @@ const {
   getPopularArticles,
   getArticlesByTag,
   getAllTags,
-  getBlogStats
+  getBlogStats,
+  toggleLike,
+  getArticleLikes
 } = require('../controllers/articleController');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 /**
  * Rutas para manejar operaciones relacionadas con artículos
@@ -34,7 +37,13 @@ router.get('/stats', getBlogStats);
 router.get('/tag/:tag', getArticlesByTag);
 
 // GET /api/articles/:slug - Obtener artículo específico por slug
-router.get('/:slug', getArticleBySlug);
+router.get('/:slug', optionalAuth, getArticleBySlug);
+
+// POST /api/articles/:slug/like - Dar o quitar like a un artículo (requiere autenticación)
+router.post('/:slug/like', authenticateToken, toggleLike);
+
+// GET /api/articles/:slug/likes - Obtener usuarios que dieron like a un artículo
+router.get('/:slug/likes', getArticleLikes);
 
 module.exports = router;
 

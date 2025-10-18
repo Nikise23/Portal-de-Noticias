@@ -12,15 +12,27 @@ const commentSchema = new mongoose.Schema({
     required: [true, 'El ID del artículo es obligatorio'],
     index: true
   },
+  // Referencia al usuario autenticado (opcional para mantener compatibilidad)
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    index: true
+  },
+  // Campos para comentarios anónimos (mantener compatibilidad)
   author: {
     type: String,
-    required: [true, 'El autor del comentario es obligatorio'],
+    required: function() {
+      return !this.userId; // Requerido solo si no hay userId
+    },
     trim: true,
     maxlength: [100, 'El nombre del autor no puede exceder 100 caracteres']
   },
   email: {
     type: String,
-    required: [true, 'El email del autor es obligatorio'],
+    required: function() {
+      return !this.userId; // Requerido solo si no hay userId
+    },
     trim: true,
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Por favor ingresa un email válido']
@@ -64,6 +76,7 @@ commentSchema.index({ articleId: 1, createdAt: -1 }); // Índice para obtener co
 commentSchema.index({ parentCommentId: 1 }); // Índice para respuestas
 commentSchema.index({ isApproved: 1 }); // Índice para comentarios aprobados
 commentSchema.index({ author: 1 }); // Índice para búsqueda por autor
+commentSchema.index({ userId: 1, createdAt: -1 }); // Índice para comentarios por usuario
 
 // Virtual para obtener respuestas (comentarios hijos)
 commentSchema.virtual('replies', {
@@ -98,11 +111,12 @@ commentSchema.statics.getCommentsForArticle = function(articleId, options = {}) 
   };
   
   return this.find(query)
-    .populate('replies', 'author content createdAt likesCount isEdited')
+    .populate('userId', 'name email avatar')
+    .populate('replies', 'author content createdAt likesCount isEdited userId')
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('author content createdAt likesCount isEdited parentCommentId');
+    .select('author content createdAt likesCount isEdited parentCommentId userId');
 };
 
 // Método estático para obtener respuestas de un comentario
@@ -123,9 +137,22 @@ commentSchema.statics.getRepliesForComment = function(commentId, options = {}) {
 commentSchema.statics.getRecentComments = function(limit = 10) {
   return this.find({ isApproved: true })
     .populate('articleId', 'title slug')
+    .populate('userId', 'name email avatar')
     .sort({ createdAt: -1 })
     .limit(limit)
-    .select('author content createdAt articleId');
+    .select('author content createdAt articleId userId');
+};
+
+// Método estático para obtener comentarios de un usuario
+commentSchema.statics.getCommentsByUser = function(userId, options = {}) {
+  const { page = 1, limit = 20 } = options;
+  
+  return this.find({ userId, isApproved: true })
+    .populate('articleId', 'title slug')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .select('content createdAt articleId likesCount');
 };
 
 // Método de instancia para incrementar likes
@@ -193,5 +220,6 @@ commentSchema.post('findOneAndDelete', async function(doc) {
 const Comment = mongoose.model('Comment', commentSchema);
 
 module.exports = Comment;
+
 
 
