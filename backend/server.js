@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const connectDB = require('./config/db');
@@ -44,8 +45,8 @@ const swaggerOptions = {
         description: 'Servidor de desarrollo'
       },
       {
-        url: 'https://api-blog-interactivo.herokuapp.com',
-        description: 'Servidor de producción'
+        url: 'https://portal-de-noticias-r4yi.onrender.com',
+        description: 'Servidor de producción (Render)'
       }
     ],
     components: {
@@ -269,6 +270,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api', commentRoutes);
 
+// Servir archivos estáticos del frontend (después de todas las rutas de API)
+const frontendDistPath = path.join(__dirname, '..', 'frontend-tp-arq-web-main', 'dist');
+app.use(express.static(frontendDistPath));
+
 /**
  * @swagger
  * /health:
@@ -375,19 +380,46 @@ app.get('/', (req, res) => {
   });
 });
 
-// Middleware para manejar rutas no encontradas (404)
+// Catch-all para SPA del frontend (sirve index.html para rutas no-API)
+// Esto debe estar ANTES del middleware de errores 404 para rutas de API
+app.get('*', (req, res, next) => {
+  // Si es una ruta de API, pasar al siguiente middleware (que dará 404 JSON)
+  if (req.path.startsWith('/api') || req.path.startsWith('/api-docs') || req.path === '/health') {
+    return next();
+  }
+  
+  // Si no es API, servir index.html del frontend (SPA routing)
+  const indexPath = path.join(frontendDistPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      // Si no existe el frontend build, dar 404
+      next();
+    }
+  });
+});
+
+// Middleware para manejar rutas de API no encontradas (404)
 app.use('*', (req, res) => {
+  // Solo llegamos aquí si es una ruta de API que no existe
+  if (req.path.startsWith('/api') || req.path.startsWith('/api-docs')) {
+    return res.status(404).json({
+      success: false,
+      message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
+      availableRoutes: [
+        'GET /api/articles',
+        'GET /api/articles/:slug',
+        'GET /api/articles/:slug/comments',
+        'POST /api/articles/:slug/comments',
+        'POST /api/articles/:slug/like',
+        'GET /health'
+      ]
+    });
+  }
+  
+  // Para otras rutas, 404 simple
   res.status(404).json({
     success: false,
-    message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
-    availableRoutes: [
-      'GET /api/articles',
-      'GET /api/articles/:slug',
-      'GET /api/articles/:slug/comments',
-      'POST /api/articles/:slug/comments',
-      'POST /api/articles/:slug/like',
-      'GET /health'
-    ]
+    message: 'Ruta no encontrada'
   });
 });
 
