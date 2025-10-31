@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Índices para optimizar consultas
-userSchema.index({ email: 1 });
+// Nota: email ya tiene index único por unique: true en el schema
 userSchema.index({ createdAt: -1 });
 
 /**

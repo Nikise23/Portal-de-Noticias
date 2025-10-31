@@ -12,8 +12,11 @@ const connectDB = async () => {
     const options = {
       // Configuraciones adicionales para optimizar la conexión
       maxPoolSize: 10, // Mantener hasta 10 conexiones en el pool
-      serverSelectionTimeoutMS: 5000, // Mantener intentando enviar operaciones por 5 segundos
+      serverSelectionTimeoutMS: 30000, // Aumentar a 30 segundos para Render
       socketTimeoutMS: 45000, // Cerrar sockets después de 45 segundos de inactividad
+      connectTimeoutMS: 30000, // Tiempo máximo para establecer conexión inicial
+      retryWrites: true,
+      w: 'majority'
     };
 
     // Conectar a MongoDB

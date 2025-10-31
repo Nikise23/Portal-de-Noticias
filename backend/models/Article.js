@@ -72,7 +72,7 @@ const articleSchema = new mongoose.Schema({
 });
 
 // Índices para optimizar consultas
-articleSchema.index({ slug: 1 }); // Índice único para slug
+// Nota: slug ya tiene index único por unique: true en el schema
 articleSchema.index({ title: 'text', content: 'text' }); // Índice de texto para búsqueda
 articleSchema.index({ publishedAt: -1 }); // Índice para ordenar por fecha de publicación
 articleSchema.index({ tags: 1 }); // Índice para búsqueda por tags
