@@ -28,7 +28,9 @@ coverage/
 
 # Build outputs
 build/
+# Ignorar dist/ excepto el del frontend (necesario para deployment)
 dist/
+!frontend-tp-arq-web-main/dist/
 .tmp/
 .temp/
 

@@ -1,0 +1,43 @@
+# Render Blueprint para Portal de Noticias
+# Este archivo permite desplegar automáticamente en Render
+# Ve a: https://dashboard.render.com/blueprints y pega la URL de tu repo
+
+services:
+  - type: web
+    name: portal-de-noticias-backend
+    env: node
+    region: oregon  # Puedes cambiar a: frankfurt, singapore, etc.
+    plan: free
+    buildCommand: |
+      echo "📦 Instalando dependencias del frontend..."
+      cd frontend-tp-arq-web-main
+      npm install
+      echo "🔨 Compilando frontend..."
+      npm run build
+      cd ..
+      echo "📦 Instalando dependencias del backend..."
+      cd backend
+      npm install
+    startCommand: cd backend && npm start
+    rootDir: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false  # Debes configurarlo manualmente en Render Dashboard
+      - key: CORS_ORIGIN
+        sync: false  # Se configurará automáticamente después del deploy
+      - key: API_VERSION
+        value: v1
+      - key: JWT_SECRET
+        sync: false  # Configurar manualmente con un valor seguro
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_ISSUER
+        value: blog-api
+      - key: JWT_AUDIENCE
+        value: blog-users
+    healthCheckPath: /health
+

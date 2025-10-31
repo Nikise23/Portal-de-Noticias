@@ -9,8 +9,8 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
-dist
-dist-ssr
+# dist - Comentado para permitir el build en el repositorio (necesario para deployment)
+# dist-ssr
 coverage
 *.local
 
