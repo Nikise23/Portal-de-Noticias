@@ -101,6 +101,12 @@ const fetchArticuloDetalle = async (slug) => {
     const jsonResponse = await response.json()
     articulo.value = jsonResponse.data.article
 
+    // Validar que el artículo tenga slug
+    if (articulo.value && !articulo.value.slug) {
+      console.error('Error: El artículo no tiene slug', articulo.value)
+      throw new Error('El artículo no tiene un identificador válido (slug)')
+    }
+
     // Inicializar estado de like basado en localStorage
     if (articulo.value) {
       articulo.value.userLiked = hasUserLiked(articulo.value.slug)
@@ -141,6 +147,14 @@ const toggleLike = async () => {
 
   isLiking.value = true
   
+  // Verificar que el slug esté disponible
+  if (!articulo.value.slug) {
+    console.error('Error: El artículo no tiene slug válido', articulo.value)
+    alert('Error: No se puede dar like. El artículo no tiene un identificador válido.')
+    isLiking.value = false
+    return
+  }
+
   // Verificar si ya dio like usando localStorage
   const userLiked = hasUserLiked(articulo.value.slug)
   const action = userLiked ? 'decrement' : 'increment'

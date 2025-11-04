@@ -141,18 +141,32 @@ articleSchema.methods.incrementViews = function() {
   return this.save();
 };
 
-// Método de instancia para incrementar likes
-articleSchema.methods.incrementLikes = function() {
-  this.likesCount += 1;
-  return this.save();
+// Método de instancia para incrementar likes (usando operación atómica)
+articleSchema.methods.incrementLikes = async function() {
+  // Usar findByIdAndUpdate con $inc para operación atómica
+  const updated = await this.constructor.findByIdAndUpdate(
+    this._id,
+    { $inc: { likesCount: 1 } },
+    { new: true }
+  );
+  // Actualizar el objeto actual con los valores actualizados
+  this.likesCount = updated.likesCount;
+  return this;
 };
 
-// Método de instancia para decrementar likes
-articleSchema.methods.decrementLikes = function() {
-  if (this.likesCount > 0) {
-    this.likesCount -= 1;
-  }
-  return this.save();
+// Método de instancia para decrementar likes (usando operación atómica)
+articleSchema.methods.decrementLikes = async function() {
+  // Usar findByIdAndUpdate con $inc para operación atómica
+  // Solo decrementar si likesCount > 0
+  const decrementValue = this.likesCount > 0 ? -1 : 0;
+  const updated = await this.constructor.findByIdAndUpdate(
+    this._id,
+    { $inc: { likesCount: decrementValue } },
+    { new: true }
+  );
+  // Actualizar el objeto actual con los valores actualizados
+  this.likesCount = updated.likesCount;
+  return this;
 };
 
 const Article = mongoose.model('Article', articleSchema);

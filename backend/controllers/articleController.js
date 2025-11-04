@@ -721,11 +721,39 @@ const toggleLike = async (req, res) => {
 
     console.log('Buscando artículo con slug:', normalizedSlug); // Debug
 
-    // Buscar el artículo por slug (los slugs ya están en lowercase en el schema)
-    const article = await Article.findOne({ 
-      slug: normalizedSlug,
-      isPublished: true 
-    });
+    // Verificar si el parámetro es un ObjectId de MongoDB (24 caracteres hexadecimales)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(normalizedSlug);
+    
+    let article;
+    
+    if (isObjectId) {
+      // Si es un ObjectId, buscar por _id (fallback para compatibilidad)
+      console.warn('Se recibió un ObjectId en lugar de slug, buscando por _id:', normalizedSlug);
+      article = await Article.findById(normalizedSlug);
+      
+      if (!article) {
+        return res.status(404).json({
+          success: false,
+          message: 'Artículo no encontrado por ID'
+        });
+      }
+      
+      // Si el artículo tiene slug, redirigir al endpoint correcto
+      if (article.slug) {
+        return res.status(400).json({
+          success: false,
+          message: 'Use el slug del artículo en lugar del ID',
+          slug: article.slug,
+          correctUrl: `/api/articles/${article.slug}/like`
+        });
+      }
+    } else {
+      // Buscar por slug normalmente
+      article = await Article.findOne({ 
+        slug: normalizedSlug,
+        isPublished: true 
+      });
+    }
 
     // Si no se encuentra con isPublished, intentar sin ese filtro (para debug)
     if (!article) {
@@ -761,8 +789,12 @@ const toggleLike = async (req, res) => {
 
     if (action === 'increment') {
       updatedArticle = await article.incrementLikes();
+      // Recargar el artículo desde la BD para obtener el valor actualizado
+      updatedArticle = await Article.findById(article._id).select('slug title likesCount');
     } else if (action === 'decrement') {
       updatedArticle = await article.decrementLikes();
+      // Recargar el artículo desde la BD para obtener el valor actualizado
+      updatedArticle = await Article.findById(article._id).select('slug title likesCount');
     } else {
       return res.status(400).json({
         success: false,
