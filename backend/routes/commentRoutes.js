@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   getCommentsForArticle,
   addComment,
-  getRecentComments
+  getRecentComments,
+  toggleCommentLike
 } = require('../controllers/commentController');
 const { optionalAuth } = require('../middleware/auth');
 
@@ -20,6 +21,9 @@ router.post('/articles/:slug/comments', optionalAuth, addComment);
 
 // GET /api/comments/recent - Obtener comentarios recientes
 router.get('/comments/recent', getRecentComments);
+
+// POST /api/comments/:commentId/like - Alternar like en un comentario (sin autenticación requerida)
+router.post('/comments/:commentId/like', toggleCommentLike);
 
 module.exports = router;
 

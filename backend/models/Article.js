@@ -37,6 +37,11 @@ const articleSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'El nombre del autor no puede exceder 100 caracteres']
   },
+  imagenUrl: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   tags: [{
     type: String,
     trim: true,
@@ -119,7 +124,7 @@ articleSchema.statics.searchByText = function(searchTerm, options = {}) {
     .sort(sortOptions)
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime');
+      .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime imagenUrl');
 };
 
 // Método estático para obtener artículos populares
@@ -127,7 +132,7 @@ articleSchema.statics.getPopularArticles = function(limit = 5) {
   return this.find({ isPublished: true })
     .sort({ likesCount: -1, viewsCount: -1 })
     .limit(limit)
-    .select('title slug excerpt author publishedAt likesCount viewsCount');
+      .select('title slug excerpt author publishedAt likesCount viewsCount imagenUrl');
 };
 
 // Método de instancia para incrementar vistas

@@ -144,7 +144,7 @@ const getAllArticles = async (req, res) => {
       .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime')
+      .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime imagenUrl')
       .lean();
 
     // Obtener total de documentos para paginación
@@ -386,40 +386,133 @@ const searchArticles = async (req, res) => {
       });
     }
 
-    // Usar el método estático de búsqueda por texto
-    const articles = await Article.searchByText(searchTerm.trim(), {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sortBy,
-      sortOrder
-    });
+    const trimmedTerm = searchTerm.trim();
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Contar total de resultados
-    const totalResults = await Article.countDocuments({
-      $text: { $search: searchTerm.trim() },
-      isPublished: true
-    });
+    let articles = [];
+    let totalResults = 0;
 
-    const totalPages = Math.ceil(totalResults / limit);
+    try {
+      // Intentar usar búsqueda de texto con índice
+      articles = await Article.searchByText(trimmedTerm, {
+        page: pageNum,
+        limit: limitNum,
+        sortBy,
+        sortOrder
+      });
+
+      totalResults = await Article.countDocuments({
+        $text: { $search: trimmedTerm },
+        isPublished: true
+      });
+    } catch (textSearchError) {
+      // Si falla la búsqueda de texto (por ejemplo, índice no existe), usar búsqueda regex como fallback
+      const errorMessage = textSearchError.message || '';
+      const isTextIndexError = errorMessage.includes('text index') || 
+                               errorMessage.includes('$text') ||
+                               errorMessage.includes('no text index');
+      
+      if (isTextIndexError) {
+        console.warn('Índice de texto no disponible, usando búsqueda regex como fallback');
+        
+        const regexQuery = {
+          isPublished: true,
+          $or: [
+            { title: { $regex: trimmedTerm, $options: 'i' } },
+            { content: { $regex: trimmedTerm, $options: 'i' } },
+            { tags: { $in: [new RegExp(trimmedTerm, 'i')] } }
+          ]
+        };
+
+        articles = await Article.find(regexQuery)
+          .sort(sortOptions)
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum)
+          .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime imagenUrl')
+          .lean();
+
+        totalResults = await Article.countDocuments(regexQuery);
+      } else {
+        // Si es otro tipo de error, relanzarlo
+        throw textSearchError;
+      }
+    }
+
+    const totalPages = Math.ceil(totalResults / limitNum);
 
     res.json({
       success: true,
       data: {
         articles,
-        searchTerm: searchTerm.trim(),
+        searchTerm: trimmedTerm,
         pagination: {
-          currentPage: parseInt(page),
+          currentPage: pageNum,
           totalPages,
           totalResults,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-          limit: parseInt(limit)
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1,
+          limit: limitNum
         }
       }
     });
 
   } catch (error) {
     console.error('Error en búsqueda de artículos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Actualizar imagen de un artículo
+ * PATCH /api/articles/:slug/image
+ */
+const updateArticleImage = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { imagenUrl } = req.body;
+
+    if (!imagenUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'La URL de la imagen es requerida'
+      });
+    }
+
+    // Buscar el artículo por slug
+    const article = await Article.findOne({ slug: slug.trim().toLowerCase() });
+
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Artículo no encontrado'
+      });
+    }
+
+    // Actualizar solo el campo imagenUrl
+    article.imagenUrl = imagenUrl.trim();
+    await article.save();
+
+    res.json({
+      success: true,
+      message: 'Imagen del artículo actualizada exitosamente',
+      data: {
+        article: {
+          slug: article.slug,
+          title: article.title,
+          imagenUrl: article.imagenUrl
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar imagen del artículo:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -479,7 +572,7 @@ const getArticlesByTag = async (req, res) => {
       .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime')
+      .select('title slug excerpt author publishedAt tags likesCount viewsCount readingTime imagenUrl')
       .lean();
 
     const totalArticles = await Article.countDocuments(filters);
@@ -583,10 +676,8 @@ const getBlogStats = async (req, res) => {
  * /api/articles/{slug}/like:
  *   post:
  *     summary: Dar o quitar like a un artículo
- *     description: Permite a usuarios autenticados dar o quitar like a un artículo
+ *     description: Permite dar o quitar like a un artículo (sin autenticación requerida)
  *     tags: [Articles]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: slug
@@ -615,39 +706,77 @@ const getBlogStats = async (req, res) => {
  *                     likesCount:
  *                       type: integer
  *                       description: Número total de likes
- *       401:
- *         description: No autenticado
+ *       400:
+ *         description: Acción inválida
  *       404:
  *         description: Artículo no encontrado
  */
 const toggleLike = async (req, res) => {
   try {
     const { slug } = req.params;
-    const userId = req.user._id;
+    const { action = 'increment' } = req.body; // 'increment' o 'decrement'
 
-    // Buscar el artículo por slug
-    const article = await Article.findOne({ slug });
+    // Normalizar el slug (trim)
+    const normalizedSlug = slug.trim();
+
+    console.log('Buscando artículo con slug:', normalizedSlug); // Debug
+
+    // Buscar el artículo por slug (los slugs ya están en lowercase en el schema)
+    const article = await Article.findOne({ 
+      slug: normalizedSlug,
+      isPublished: true 
+    });
+
+    // Si no se encuentra con isPublished, intentar sin ese filtro (para debug)
     if (!article) {
+      const articleWithoutFilter = await Article.findOne({ 
+        slug: normalizedSlug
+      });
+      
+      if (articleWithoutFilter) {
+        console.log('Artículo encontrado pero no publicado:', articleWithoutFilter.slug);
+        return res.status(404).json({
+          success: false,
+          message: 'Artículo no encontrado o no publicado'
+        });
+      }
+      
+      // Debug: mostrar algunos artículos para ver qué hay en la BD
+      if (process.env.NODE_ENV === 'development') {
+        const allArticles = await Article.find({}).select('slug title isPublished').limit(5);
+        console.log('Artículos en BD (primeros 5):', allArticles);
+      }
+      
       return res.status(404).json({
         success: false,
-        message: 'Artículo no encontrado'
+        message: 'Artículo no encontrado',
+        debug: process.env.NODE_ENV === 'development' ? {
+          searchedSlug: normalizedSlug,
+          originalSlug: slug
+        } : undefined
       });
     }
 
-    // Toggle like usando el método del modelo
-    const result = await Like.toggleLike(userId, article._id);
+    let updatedArticle;
 
-    // Actualizar contador de likes en el artículo
-    const likesCount = await Like.countLikesForArticle(article._id);
-    await Article.findByIdAndUpdate(article._id, { likesCount });
+    if (action === 'increment') {
+      updatedArticle = await article.incrementLikes();
+    } else if (action === 'decrement') {
+      updatedArticle = await article.decrementLikes();
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Acción inválida. Use "increment" o "decrement"'
+      });
+    }
 
     res.json({
       success: true,
-      message: result.message,
+      message: `Like ${action === 'increment' ? 'agregado' : 'removido'} exitosamente`,
       data: {
-        liked: result.liked,
-        likesCount,
-        action: result.action
+        liked: action === 'increment',
+        likesCount: updatedArticle.likesCount,
+        action: action
       }
     });
 
@@ -656,7 +785,7 @@ const toggleLike = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      error: 'Error al procesar el like'
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -766,6 +895,7 @@ module.exports = {
   getAllTags,
   getBlogStats,
   toggleLike,
-  getArticleLikes
+  getArticleLikes,
+  updateArticleImage
 };
 

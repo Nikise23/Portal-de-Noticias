@@ -10,6 +10,7 @@ const connectDB = require('./config/db');
 const articleRoutes = require('./routes/articleRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const authRoutes = require('./routes/authRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -269,6 +270,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api', commentRoutes);
+app.use('/api/upload', uploadRoutes);
+
+// Servir archivos estáticos de uploads
+const uploadsPath = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // Servir archivos estáticos del frontend (después de todas las rutas de API)
 const frontendDistPath = path.join(__dirname, '..', 'frontend-tp-arq-web-main', 'dist');

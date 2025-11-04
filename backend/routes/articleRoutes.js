@@ -9,7 +9,8 @@ const {
   getAllTags,
   getBlogStats,
   toggleLike,
-  getArticleLikes
+  getArticleLikes,
+  updateArticleImage
 } = require('../controllers/articleController');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
@@ -36,14 +37,18 @@ router.get('/stats', getBlogStats);
 // GET /api/articles/tag/:tag - Obtener artículos por tag específico
 router.get('/tag/:tag', getArticlesByTag);
 
-// GET /api/articles/:slug - Obtener artículo específico por slug
-router.get('/:slug', optionalAuth, getArticleBySlug);
+// PATCH /api/articles/:slug/image - Actualizar imagen de un artículo
+router.patch('/:slug/image', updateArticleImage);
 
-// POST /api/articles/:slug/like - Dar o quitar like a un artículo (requiere autenticación)
-router.post('/:slug/like', authenticateToken, toggleLike);
+// POST /api/articles/:slug/like - Dar o quitar like a un artículo (sin autenticación requerida)
+// IMPORTANTE: Esta ruta debe estar ANTES de /:slug para que Express la capture correctamente
+router.post('/:slug/like', toggleLike);
 
 // GET /api/articles/:slug/likes - Obtener usuarios que dieron like a un artículo
 router.get('/:slug/likes', getArticleLikes);
+
+// GET /api/articles/:slug - Obtener artículo específico por slug (debe ir al final)
+router.get('/:slug', optionalAuth, getArticleBySlug);
 
 module.exports = router;
 
