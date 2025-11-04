@@ -21,9 +21,10 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const isOpen = ref(false)
-
 const searchTerm = ref('')
 
 const toggleSearch = () => {
@@ -39,10 +40,11 @@ const closeSearch = () => {
 }
 
 const performSearch = () => {
-  if (searchTerm.value.trim() !== '') {
-    console.log(`Buscando: ${searchTerm.value}`)
-
+  const term = searchTerm.value.trim()
+  if (term !== '') {
     closeSearch()
+    // Navegar a la ruta de búsqueda con el término como query parameter
+    router.push({ name: 'busqueda', query: { q: term } })
   }
 }
 </script>

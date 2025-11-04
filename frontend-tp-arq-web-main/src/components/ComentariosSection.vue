@@ -202,18 +202,27 @@ const toggleLike = async (commentId, isLiked) => {
   const action = isLiked ? 'decrement' : 'increment'
 
   try {
-  const response = await fetch((import.meta.env.VITE_API_BASE || '') + `/api/articles/${commentId}/like`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: action }),
-    })
+    const response = await fetch(
+      `${import.meta.env.VITE_API_BASE || ''}/api/comments/${commentId}/like`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action }),
+      }
+    )
 
-    if (response.ok) {
-      fetchComments(props.articleSlug, currentPage.value)
-    } else {
-      const jsonResponse = await response.json()
+    const jsonResponse = await response.json()
+
+    if (!response.ok) {
       throw new Error(jsonResponse.message || 'Fallo al alternar like.')
     }
+
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || 'Error al dar like')
+    }
+
+    // Recargar comentarios para actualizar los contadores
+    fetchComments(props.articleSlug, currentPage.value)
   } catch (e) {
     console.error('Error al alternar like:', e)
     alert(`Error al dar like: ${e.message}`)

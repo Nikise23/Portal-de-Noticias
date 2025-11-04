@@ -20,9 +20,14 @@
                 <i class="bi bi-eye-fill"></i> {{ articulo.viewsCount || 0 }} Vistas
               </span>
 
-              <span class="social-contador likes">
+              <button 
+                class="social-contador likes btn-like" 
+                @click="toggleLike"
+                :disabled="isLiking"
+                :class="{ 'liked': articulo.userLiked }"
+              >
                 <i class="bi bi-heart-fill"></i> {{ articulo.likesCount || 0 }} Me gusta
-              </span>
+              </button>
             </div>
           </div>
 
@@ -66,6 +71,7 @@ const articulo = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const contenidoHTML = ref('')
+const isLiking = ref(false)
 
 const tituloHTML = computed(() => {
   if (articulo.value && articulo.value.title) {
@@ -95,6 +101,11 @@ const fetchArticuloDetalle = async (slug) => {
     const jsonResponse = await response.json()
     articulo.value = jsonResponse.data.article
 
+    // Inicializar estado de like basado en localStorage
+    if (articulo.value) {
+      articulo.value.userLiked = hasUserLiked(articulo.value.slug)
+    }
+
     if (articulo.value && articulo.value.content) {
       contenidoHTML.value = marked(articulo.value.content)
     }
@@ -103,6 +114,77 @@ const fetchArticuloDetalle = async (slug) => {
     error.value = err
   } finally {
     loading.value = false
+  }
+}
+
+// Función para verificar si el usuario ya dio like (usando localStorage)
+const hasUserLiked = (slug) => {
+  const likedArticles = JSON.parse(localStorage.getItem('likedArticles') || '[]')
+  return likedArticles.includes(slug)
+}
+
+// Función para guardar/eliminar like en localStorage
+const updateLocalStorageLike = (slug, liked) => {
+  let likedArticles = JSON.parse(localStorage.getItem('likedArticles') || '[]')
+  if (liked) {
+    if (!likedArticles.includes(slug)) {
+      likedArticles.push(slug)
+    }
+  } else {
+    likedArticles = likedArticles.filter(s => s !== slug)
+  }
+  localStorage.setItem('likedArticles', JSON.stringify(likedArticles))
+}
+
+const toggleLike = async () => {
+  if (!articulo.value || isLiking.value) return
+
+  isLiking.value = true
+  
+  // Verificar si ya dio like usando localStorage
+  const userLiked = hasUserLiked(articulo.value.slug)
+  const action = userLiked ? 'decrement' : 'increment'
+
+  // Usar el slug directamente (ya está en formato URL-safe)
+  const slug = articulo.value.slug
+  console.log('Enviando like para slug:', slug, 'Artículo:', articulo.value) // Debug
+
+  try {
+    const url = `${import.meta.env.VITE_API_BASE || ''}/api/articles/${slug}/like`
+    console.log('URL de la petición:', url) // Debug
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action }),
+    })
+
+    const jsonResponse = await response.json()
+    console.log('Respuesta del servidor:', jsonResponse) // Debug
+
+    if (!response.ok) {
+      throw new Error(jsonResponse.message || `Error HTTP: ${response.status}`)
+    }
+
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || 'Error al dar like')
+    }
+
+    // Actualizar el contador de likes y el estado
+    if (articulo.value) {
+      articulo.value.likesCount = jsonResponse.data.likesCount
+      articulo.value.userLiked = jsonResponse.data.liked
+      // Actualizar localStorage
+      updateLocalStorageLike(articulo.value.slug, jsonResponse.data.liked)
+    }
+  } catch (err) {
+    console.error('Error al dar like:', err)
+    console.error('Artículo actual:', articulo.value) // Debug
+    alert(`Error al dar like: ${err.message}`)
+  } finally {
+    isLiking.value = false
   }
 }
 
@@ -157,6 +239,36 @@ watch(
 
 .social-contador i {
   font-size: 1.1em;
+}
+
+.btn-like {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+  font-size: 0.9em;
+  color: #666;
+  font-weight: 500;
+}
+
+.btn-like:hover:not(:disabled) {
+  background-color: #f0f0f0;
+  color: #006dff;
+}
+
+.btn-like:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-like.liked {
+  color: #e74c3c;
+}
+
+.btn-like.liked i {
+  color: #e74c3c;
 }
 
 .articulo-tag {
