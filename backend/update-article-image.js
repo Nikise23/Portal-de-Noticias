@@ -1,11 +1,14 @@
 /**
- * Script para actualizar la imagen de un artículo
+ * Script para actualizar la imagen de un artículo mediante URL externa
  * 
  * Uso:
  * node update-article-image.js <slug> <imagenUrl>
  * 
- * Ejemplo:
- * node update-article-image.js politica-tecnologia /uploads/images/politica-tecnologia.webp
+ * Ejemplos:
+ * node update-article-image.js politica-tecnologia https://ejemplo.com/imagen.jpg
+ * node update-article-image.js tecnologia-2025 https://cdn.ejemplo.com/images/tech.webp
+ * 
+ * Nota: Las imágenes ahora se manejan mediante URLs externas, no se usa más la carpeta uploads/images
  */
 
 require('dotenv').config();
@@ -46,7 +49,9 @@ const args = process.argv.slice(2);
 
 if (args.length < 2) {
   console.log('Uso: node update-article-image.js <slug> <imagenUrl>');
-  console.log('Ejemplo: node update-article-image.js politica-tecnologia /uploads/images/politica-tecnologia.webp');
+  console.log('Ejemplo: node update-article-image.js politica-tecnologia https://ejemplo.com/imagen.jpg');
+  console.log('');
+  console.log('Nota: Debe proporcionar una URL completa (ej: https://ejemplo.com/imagen.jpg)');
   process.exit(1);
 }
 

@@ -136,674 +136,181 @@ curl http://localhost:3000/api/articles
 
 ## 🌐 Despliegue en Producción
 
-### Opción 1: Docker (Recomendado para desarrollo y producción)
+### Opción 1: Render.com (Recomendado - Usado en este proyecto)
 
-#### Preparar Aplicación para Docker
-```bash
-# Crear Dockerfile
-cat > Dockerfile << EOF
-# Usar imagen oficial de Node.js
-FROM node:16-alpine
+#### Preparar Aplicación para Render
 
-# Establecer directorio de trabajo
-WORKDIR /app
+Render.com utiliza el archivo `render.yaml` en la raíz del proyecto para configurar el despliegue automático.
 
-# Copiar archivos de dependencias
-COPY package*.json ./
-
-# Instalar dependencias
-RUN npm ci --only=production
-
-# Copiar código fuente
-COPY . .
-
-# Crear usuario no-root para seguridad
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Cambiar propiedad de archivos
-RUN chown -R nodejs:nodejs /app
-USER nodejs
-
-# Exponer puerto
-EXPOSE 3000
-
-# Comando para iniciar la aplicación
-CMD ["npm", "start"]
-EOF
-
-# Crear .dockerignore
-cat > .dockerignore << EOF
-node_modules
-npm-debug.log
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.git
-.gitignore
-README.md
-Dockerfile
-.dockerignore
-EOF
-```
-
-#### Desplegar con Docker Compose
-```bash
-# Crear docker-compose.yml
-cat > docker-compose.yml << EOF
-version: '3.8'
-
+**Archivo render.yaml** (ya incluido en el proyecto):
+```yaml
 services:
-  backend:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - MONGODB_URI=mongodb+srv://arqweb_blog_user:PASSWORD@clusternews.pzw8mah.mongodb.net/blog_interactivo
-      - CORS_ORIGIN=https://tu-frontend.vercel.app
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Opcional: MongoDB local para desarrollo
-  mongodb:
-    image: mongo:5.0
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=password
-    volumes:
-      - mongodb_data:/data/db
-    restart: unless-stopped
-
-volumes:
-  mongodb_data:
-EOF
-
-# Construir y ejecutar
-docker-compose up -d
-
-# Verificar que está funcionando
-docker-compose ps
-docker-compose logs backend
+  - type: web
+    name: portal-de-noticias-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: |
+      echo "📦 Instalando dependencias del frontend..."
+      cd frontend-tp-arq-web-main
+      npm install
+      echo "🔨 Compilando frontend..."
+      npm run build
+      cd ..
+      echo "📦 Instalando dependencias del backend..."
+      cd backend
+      npm install
+    startCommand: cd backend && npm start
+    rootDir: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: API_VERSION
+        value: v1
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_ISSUER
+        value: blog-api
+      - key: JWT_AUDIENCE
+        value: blog-users
+    healthCheckPath: /health
 ```
 
-#### Desplegar en Docker Hub
+#### Desplegar en Render.com
+
+**Método 1: Blueprint (Recomendado)**
+
+1. **Crear cuenta en Render.com**:
+   - Ir a [Render.com](https://render.com)
+   - Crear cuenta gratuita
+   - Conectar cuenta de GitHub/GitLab
+
+2. **Desplegar desde Blueprint**:
+   - Ir a [Render Dashboard > Blueprints](https://dashboard.render.com/blueprints)
+   - Click en **"New Blueprint"**
+   - Pegar la URL de tu repositorio Git
+   - Render detectará automáticamente el archivo `render.yaml`
+   - Click en **"Apply"**
+
+3. **Configurar Variables de Entorno**:
+   En el Dashboard de Render, ir a tu servicio y configurar las siguientes variables:
+   
+   ```env
+   MONGODB_URI=mongodb+srv://arqweb_blog_user:PASSWORD@clusternews.pzw8mah.mongodb.net/blog_interactivo?retryWrites=true&w=majority&appName=ClusterNews
+   
+   CORS_ORIGIN=https://tu-frontend.vercel.app
+   
+   JWT_SECRET=tu-secreto-jwt-muy-seguro-y-largo-minimo-32-caracteres
+   ```
+
+   **Generar JWT_SECRET seguro**:
+   ```bash
+   # En terminal
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+4. **Verificar Despliegue**:
+   - Render construirá automáticamente la aplicación
+   - El servicio estará disponible en: `https://tu-app.onrender.com`
+   - Verificar endpoint de salud: `https://tu-app.onrender.com/health`
+
+**Método 2: Despliegue Manual**
+
+1. **Crear Nuevo Web Service**:
+   - Ir a [Render Dashboard](https://dashboard.render.com)
+   - Click en **"New +"** → **"Web Service"**
+   - Conectar repositorio Git
+   - Seleccionar el repositorio del proyecto
+
+2. **Configurar Servicio**:
+   - **Name**: `portal-de-noticias-backend`
+   - **Environment**: `Node`
+   - **Region**: `Oregon` (o la región más cercana)
+   - **Branch**: `main` (o tu rama principal)
+   - **Root Directory**: `.` (raíz del proyecto)
+   - **Build Command**: 
+     ```bash
+     cd frontend-tp-arq-web-main && npm install && npm run build && cd .. && cd backend && npm install
+     ```
+   - **Start Command**: `cd backend && npm start`
+   - **Plan**: `Free` (para desarrollo) o `Starter` (para producción)
+
+3. **Configurar Variables de Entorno**:
+   - Ir a la sección **"Environment"** del servicio
+   - Agregar las siguientes variables:
+     - `NODE_ENV`: `production`
+     - `PORT`: `10000` (Render asigna el puerto automáticamente, pero puedes especificar 10000)
+     - `MONGODB_URI`: Tu URI de MongoDB Atlas
+     - `CORS_ORIGIN`: URL de tu frontend
+     - `JWT_SECRET`: Secreto seguro para JWT
+     - `JWT_EXPIRES_IN`: `7d`
+     - `JWT_ISSUER`: `blog-api`
+     - `JWT_AUDIENCE`: `blog-users`
+     - `API_VERSION`: `v1`
+
+4. **Desplegar**:
+   - Click en **"Create Web Service"**
+   - Render construirá y desplegará automáticamente
+   - El servicio estará disponible cuando el build termine
+
+#### Configurar MongoDB Atlas para Render
+
+1. **Network Access**:
+   - Ir a MongoDB Atlas → **Network Access**
+   - Agregar IP de Render: `0.0.0.0/0` (permite acceso desde cualquier IP)
+   - O mejor: Agregar IPs específicas de Render si están disponibles
+
+2. **Database Access**:
+   - Verificar que el usuario `arqweb_blog_user` tiene permisos
+   - Verificar que la contraseña es correcta
+
+#### Características de Render.com
+
+- ✅ **Deploy automático**: Actualiza automáticamente con cada push a Git
+- ✅ **HTTPS gratuito**: Certificado SSL automático
+- ✅ **Health checks**: Monitoreo automático del endpoint `/health`
+- ✅ **Logs en tiempo real**: Acceso a logs desde el dashboard
+- ✅ **Plan gratuito**: Perfecto para desarrollo y proyectos pequeños
+- ✅ **Custom domains**: Posibilidad de agregar dominio personalizado
+
+#### URLs del Proyecto en Render
+
+- **Backend**: `https://portal-de-noticias-r4yi.onrender.com`
+- **Health Check**: `https://portal-de-noticias-r4yi.onrender.com/health`
+- **API Docs**: `https://portal-de-noticias-r4yi.onrender.com/api-docs`
+
+#### Troubleshooting en Render
+
+**Problema: Build falla**
 ```bash
-# Construir imagen
-docker build -t tu-usuario/blog-backend .
-
-# Etiquetar para Docker Hub
-docker tag tu-usuario/blog-backend:latest tu-usuario/blog-backend:v1.0.0
-
-# Subir a Docker Hub
-docker push tu-usuario/blog-backend:latest
-docker push tu-usuario/blog-backend:v1.0.0
-
-# En el servidor de producción
-docker pull tu-usuario/blog-backend:latest
-docker run -d \
-  --name blog-backend \
-  -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e MONGODB_URI=mongodb+srv://... \
-  -e CORS_ORIGIN=https://... \
-  --restart unless-stopped \
-  tu-usuario/blog-backend:latest
+# Verificar logs en Render Dashboard
+# Verificar que todas las dependencias están en package.json
+# Verificar que el buildCommand está correcto
 ```
 
-#### Desplegar en Kubernetes
+**Problema: Aplicación no inicia**
 ```bash
-# Crear deployment.yaml
-cat > deployment.yaml << EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: blog-backend
-  labels:
-    app: blog-backend
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: blog-backend
-  template:
-    metadata:
-      labels:
-        app: blog-backend
-    spec:
-      containers:
-      - name: blog-backend
-        image: tu-usuario/blog-backend:latest
-        ports:
-        - containerPort: 3000
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: MONGODB_URI
-          valueFrom:
-            secretKeyRef:
-              name: blog-secrets
-              key: mongodb-uri
-        - name: CORS_ORIGIN
-          value: "https://tu-frontend.vercel.app"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: blog-backend-service
-spec:
-  selector:
-    app: blog-backend
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 3000
-  type: LoadBalancer
-EOF
-
-# Aplicar configuración
-kubectl apply -f deployment.yaml
-
-# Verificar despliegue
-kubectl get pods
-kubectl get services
+# Verificar que el startCommand es correcto
+# Verificar que el PORT está configurado
+# Verificar variables de entorno
 ```
 
-#### Desplegar en AWS ECS
+**Problema: Error de conexión a MongoDB**
 ```bash
-# Crear task-definition.json
-cat > task-definition.json << EOF
-{
-  "family": "blog-backend",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
-  "executionRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskRole",
-  "containerDefinitions": [
-    {
-      "name": "blog-backend",
-      "image": "tu-usuario/blog-backend:latest",
-      "portMappings": [
-        {
-          "containerPort": 3000,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "NODE_ENV",
-          "value": "production"
-        },
-        {
-          "name": "CORS_ORIGIN",
-          "value": "https://tu-frontend.vercel.app"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "MONGODB_URI",
-          "valueFrom": "arn:aws:secretsmanager:region:account:secret:blog/mongodb"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/blog-backend",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "ecs"
-        }
-      }
-    }
-  ]
-}
-EOF
-
-# Registrar task definition
-aws ecs register-task-definition --cli-input-json file://task-definition.json
-
-# Crear servicio
-aws ecs create-service \
-  --cluster blog-cluster \
-  --service-name blog-backend-service \
-  --task-definition blog-backend \
-  --desired-count 2 \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-12345],securityGroups=[sg-12345],assignPublicIp=ENABLED}"
-```
-
-### Opción 2: Heroku (Recomendado para simplicidad)
-
-#### Preparar Aplicación
-```bash
-# Crear archivo Procfile
-echo "web: node server.js" > Procfile
-
-# Crear archivo .gitignore
-echo "node_modules
-.env
-*.log
-.DS_Store" > .gitignore
-
-# Inicializar repositorio Git
-git init
-git add .
-git commit -m "Initial commit"
-```
-
-#### Desplegar en Heroku
-```bash
-# Instalar Heroku CLI
-# https://devcenter.heroku.com/articles/heroku-cli
-
-# Login en Heroku
-heroku login
-
-# Crear aplicación
-heroku create blog-interactivo-backend
-
-# Configurar variables de entorno
-heroku config:set NODE_ENV=production
-heroku config:set MONGODB_URI=mongodb+srv://arqweb_blog_user:PASSWORD@clusternews.pzw8mah.mongodb.net/blog_interactivo
-heroku config:set CORS_ORIGIN=https://tu-frontend.herokuapp.com
-
-# Desplegar
-git push heroku main
-
-# Verificar despliegue
-heroku open
-```
-
-#### Configurar MongoDB Atlas para Producción
-1. **Network Access**: Agregar IP de Heroku
-2. **Database Access**: Verificar usuario
-3. **Connection String**: Usar URI de producción
-
-### Opción 2: Vercel
-
-#### Preparar Aplicación
-```bash
-# Crear archivo vercel.json
-cat > vercel.json << EOF
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
-  ]
-}
-EOF
-```
-
-#### Desplegar en Vercel
-```bash
-# Instalar Vercel CLI
-npm install -g vercel
-
-# Login en Vercel
-vercel login
-
-# Desplegar
-vercel
-
-# Configurar variables de entorno
-vercel env add MONGODB_URI
-vercel env add NODE_ENV
-vercel env add CORS_ORIGIN
-```
-
-### Opción 3: DigitalOcean App Platform
-
-#### Preparar Aplicación
-```bash
-# Crear archivo .do/app.yaml
-mkdir -p .do
-cat > .do/app.yaml << EOF
-name: blog-interactivo-backend
-services:
-- name: api
-  source_dir: /backend
-  github:
-    repo: tu-usuario/arq-web-tp
-    branch: main
-  run_command: npm start
-  environment_slug: node-js
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  envs:
-  - key: NODE_ENV
-    value: production
-  - key: MONGODB_URI
-    value: mongodb+srv://arqweb_blog_user:PASSWORD@clusternews.pzw8mah.mongodb.net/blog_interactivo
-  - key: CORS_ORIGIN
-    value: https://tu-frontend.vercel.app
-EOF
-```
-
-#### Desplegar en DigitalOcean
-1. Conectar repositorio GitHub
-2. Configurar variables de entorno
-3. Desplegar aplicación
-
-### Opción 4: AWS EC2
-
-#### Configurar Instancia EC2
-```bash
-# Conectar a instancia EC2
-ssh -i "tu-key.pem" ec2-user@tu-ip
-
-# Actualizar sistema
-sudo yum update -y
-
-# Instalar Node.js
-curl -fsSL https://rpm.nodesource.com/setup_16.x | sudo bash -
-sudo yum install -y nodejs
-
-# Instalar PM2 para gestión de procesos
-sudo npm install -g pm2
-
-# Clonar repositorio
-git clone [URL_DEL_REPOSITORIO]
-cd arq-web-tp/backend
-
-# Instalar dependencias
-npm install --production
-
-# Configurar variables de entorno
-cp env.example .env
-nano .env
-```
-
-#### Configurar PM2
-```bash
-# Crear archivo ecosystem.config.js
-cat > ecosystem.config.js << EOF
-module.exports = {
-  apps: [{
-    name: 'blog-backend',
-    script: 'server.js',
-    instances: 'max',
-    exec_mode: 'cluster',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 3000
-    }
-  }]
-}
-EOF
-
-# Iniciar aplicación con PM2
-pm2 start ecosystem.config.js
-
-# Configurar PM2 para iniciar automáticamente
-pm2 startup
-pm2 save
-```
-
-#### Configurar Nginx (Opcional)
-```bash
-# Instalar Nginx
-sudo yum install -y nginx
-
-# Configurar proxy reverso
-sudo nano /etc/nginx/conf.d/blog-backend.conf
-```
-
-**Contenido del archivo de configuración:**
-```nginx
-server {
-    listen 80;
-    server_name tu-dominio.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-```bash
-# Iniciar Nginx
-sudo systemctl start nginx
-sudo systemctl enable nginx
-```
-
-## 🔧 Configuración de Producción
-
-### Variables de Entorno de Producción
-```env
-# Configuración del servidor
-PORT=3000
-NODE_ENV=production
-
-# Configuración de MongoDB Atlas
-MONGODB_URI=mongodb+srv://arqweb_blog_user:PASSWORD@clusternews.pzw8mah.mongodb.net/blog_interactivo?retryWrites=true&w=majority&appName=ClusterNews
-
-# Configuración de CORS
-CORS_ORIGIN=https://tu-frontend.vercel.app
-
-# Configuración adicional
-API_VERSION=v1
-```
-
-### Optimizaciones de Producción
-```javascript
-// En server.js - agregar middleware de compresión
-const compression = require('compression');
-app.use(compression());
-
-// Configurar rate limiting
-const rateLimit = require('express-rate-limit');
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // máximo 100 requests por IP
-});
-app.use('/api/', limiter);
-
-// Configurar helmet para seguridad
-const helmet = require('helmet');
-app.use(helmet());
-```
-
-### Logging en Producción
-```javascript
-// Configurar logging con winston
-const winston = require('winston');
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
-  ]
-});
-
-// En producción, también loggear en consola
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.simple()
-  }));
-}
-```
-
-## 🔍 Verificación Post-Despliegue
-
-### 1. Verificar Servidor
-```bash
-# Probar endpoint de salud
-curl https://tu-app.herokuapp.com/health
-
-# Probar endpoint de artículos
-curl https://tu-app.herokuapp.com/api/articles
-
-# Verificar logs
-heroku logs --tail
-```
-
-### 2. Verificar Base de Datos
-```bash
-# Conectar a MongoDB Compass con URI de producción
-# Verificar que los datos están disponibles
-# Probar operaciones CRUD
-```
-
-### 3. Verificar CORS
-```bash
-# Probar desde frontend
-# Verificar que no hay errores de CORS
-# Probar peticiones desde diferentes dominios
-```
-
-### 4. Verificar Rendimiento
-```bash
-# Usar herramientas como:
-# - Lighthouse
-# - GTmetrix
-# - WebPageTest
-
-# Verificar métricas:
-# - Tiempo de respuesta < 200ms
-# - Disponibilidad > 99%
-# - Throughput > 100 req/s
-```
-
-## 🚨 Troubleshooting
-
-### Problemas Comunes
-
-#### Error de Conexión a MongoDB
-```bash
-# Verificar URI de conexión
-echo $MONGODB_URI
-
+# Verificar MONGODB_URI en variables de entorno
+# Verificar Network Access en MongoDB Atlas
 # Verificar credenciales
-# Verificar acceso de red en MongoDB Atlas
-# Verificar que el cluster está activo
 ```
 
-#### Error de CORS
-```bash
-# Verificar configuración de CORS_ORIGIN
-# Verificar que el frontend está en el dominio correcto
-# Verificar headers de respuesta
-```
 
-#### Error de Puerto
-```bash
-# Verificar que el puerto está disponible
-# Verificar configuración de PORT
-# Verificar que no hay conflictos
-```
-
-#### Error de Dependencias
-```bash
-# Limpiar caché de npm
-npm cache clean --force
-
-# Reinstalar dependencias
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Logs y Monitoreo
-```bash
-# Ver logs en tiempo real
-heroku logs --tail
-
-# Ver logs específicos
-heroku logs --source app
-
-# Ver métricas
-heroku metrics
-```
-
-## 📊 Monitoreo y Mantenimiento
-
-### Métricas Clave
-- **Uptime**: > 99.9%
-- **Response Time**: < 200ms
-- **Error Rate**: < 1%
-- **Throughput**: > 100 req/s
-
-### Alertas Recomendadas
-- **Error Rate**: > 5%
-- **Response Time**: > 500ms
-- **Memory Usage**: > 80%
-- **CPU Usage**: > 80%
-
-### Tareas de Mantenimiento
-- **Backup**: Automático en MongoDB Atlas
-- **Updates**: Dependencias npm mensuales
-- **Logs**: Rotación semanal
-- **Security**: Revisión trimestral
-
-## 🔒 Seguridad en Producción
-
-### Configuraciones de Seguridad
-```javascript
-// Configurar HTTPS
-app.use((req, res, next) => {
-  if (req.header('x-forwarded-proto') !== 'https') {
-    res.redirect(`https://${req.header('host')}${req.url}`);
-  } else {
-    next();
-  }
-});
-
-// Configurar headers de seguridad
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
-```
 
 ### Buenas Prácticas
 - **Variables de entorno**: Nunca commitear credenciales

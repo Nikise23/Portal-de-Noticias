@@ -5,7 +5,9 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLIENTE (Frontend)                      │
-│                    (React/Vue/Angular)                         │
+│                    Vue 3 + Vite + Vue Router                   │
+│                    Pinia (State Management)                    │
+│                    Bootstrap 5 (UI Framework)                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
 │  │   Component │  │   Services   │  │   Router    │            │
 │  │   Articles  │  │   HTTP API   │  │   Routes    │            │
@@ -23,6 +25,7 @@
 │  │             │  │             │  │             │              │
 │  │ /api/articles│  │ArticleCtrl  │  │ CORS, JSON │              │
 │  │ /api/comments│  │CommentCtrl  │  │ Error Handle│              │
+│  │ /api/auth   │  │AuthCtrl     │  │ Auth JWT   │              │
 │  │ /health     │  │             │  │ Logging     │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────┬───────────────────────────────────────────┘
@@ -33,20 +36,33 @@
 │                  BASE DE DATOS                                  │
 │                MongoDB Atlas                                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  Articles   │  │  Comments   │  │   Indexes   │              │
-│  │ Collection  │  │ Collection  │  │             │              │
-│  │             │  │             │  │ Text Search │              │
-│  │ - _id       │  │ - _id       │  │ - slug      │              │
-│  │ - title     │  │ - articleId │  │ - tags      │              │
-│  │ - slug      │  │ - author    │  │ - author    │              │
-│  │ - content   │  │ - email     │  │ - title     │              │
-│  │ - author    │  │ - content   │  │ - content   │              │
-│  │ - tags      │  │ - likes     │  │             │              │
-│  │ - likes     │  │ - parentId  │  │             │              │
-│  │ - views     │  │ - approved  │  │             │              │
-│  │ - published │  │ - timestamps│  │             │              │
+│  │  Articles   │  │  Comments   │  │    Users    │              │
+│  │ Collection  │  │ Collection  │  │ Collection  │              │
+│  │             │  │             │  │             │              │
+│  │ - _id       │  │ - _id       │  │ - _id       │              │
+│  │ - title     │  │ - articleId │  │ - name      │              │
+│  │ - slug      │  │ - author    │  │ - email     │              │
+│  │ - content   │  │ - email     │  │ - password  │              │
+│  │ - author    │  │ - content   │  │ - role      │              │
+│  │ - imagenUrl │  │ - likes     │  │             │              │
+│  │ - tags      │  │ - parentId  │  │             │              │
+│  │ - likes     │  │ - approved  │  │             │              │
+│  │ - views     │  │ - timestamps│  │             │              │
+│  │ - published │  │             │  │             │              │
 │  │ - timestamps│  │             │  │             │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
+│                                                                  │
+│  ┌─────────────┐                                                │
+│  │   Indexes   │                                                │
+│  │             │                                                │
+│  │ Text Search │                                                │
+│  │ - slug      │                                                │
+│  │ - tags      │                                                │
+│  │ - author    │                                                │
+│  │ - email     │                                                │
+│  │ - title     │                                                │
+│  │ - content   │                                                │
+│  └─────────────┘                                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -97,6 +113,7 @@
 │  content: String (required, min 50 chars)                      │
 │  excerpt: String (auto-generated, max 300 chars)                │
 │  author: String (required, max 100 chars)                     │
+│  imagenUrl: String (optional, URL externa completa)            │
 │  tags: [String] (max 30 chars each)                           │
 │  likesCount: Number (default: 0)                               │
 │  viewsCount: Number (default: 0)                                │
@@ -145,6 +162,34 @@
 │  - { parentCommentId: 1 }                                      │
 │  - { isApproved: 1 }                                           │
 │  - { author: 1 }                                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Colección Users
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        USERS COLLECTION                         │
+├─────────────────────────────────────────────────────────────────┤
+│  _id: ObjectId (Primary Key)                                   │
+│  name: String (required, 2-50 chars)                          │
+│  email: String (required, unique, lowercase)                  │
+│  password: String (required, hashed with bcrypt)              │
+│  avatar: String (optional)                                    │
+│  role: String (enum: ['user', 'admin'], default: 'user')      │
+│  isActive: Boolean (default: true)                            │
+│  lastLogin: Date (optional)                                    │
+│  createdAt: Date (auto-generated)                              │
+│  updatedAt: Date (auto-updated)                               │
+├─────────────────────────────────────────────────────────────────┤
+│  METHODS:                                                      │
+│  - comparePassword(candidatePassword): Boolean                │
+│  - updateLastLogin(): Promise                                  │
+│  - findByEmail(email): Promise<User>                          │
+│  - emailExists(email): Promise<Boolean>                       │
+├─────────────────────────────────────────────────────────────────┤
+│  INDEXES:                                                      │
+│  - { email: 1 } (unique)                                       │
+│  - { createdAt: -1 }                                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

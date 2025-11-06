@@ -47,6 +47,7 @@ backend/MI_EXPLICACION_BACKEND.md
 backend/FRONTEND_EXAMPLES.md
 backend/BACKEND_EXPLANATION.md
 backend/FRONTEND_AUTH_GUIDE.md
+backend/docs/EXPLICACION.md
 
 # Docker
 **/.dockerignore
