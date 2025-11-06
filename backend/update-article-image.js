@@ -7,8 +7,7 @@
  * Ejemplos:
  * node update-article-image.js politica-tecnologia https://ejemplo.com/imagen.jpg
  * node update-article-image.js tecnologia-2025 https://cdn.ejemplo.com/images/tech.webp
- * 
- * Nota: Las imágenes ahora se manejan mediante URLs externas, no se usa más la carpeta uploads/images
+ 
  */
 
 require('dotenv').config();
