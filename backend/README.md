@@ -422,18 +422,6 @@ backend/
 ├── routes/
 │   ├── articleRoutes.js   # Definición de rutas Express para Artículos
 │   └── commentRoutes.js   # Definición de rutas Express para Comentarios/Likes
-├── docs/                  # Documentación técnica completa
-│   ├── README.md          # Índice de documentación
-│   ├── ARCHITECTURE.md    # Arquitectura del sistema y decisiones técnicas
-│   ├── API.md             # Documentación detallada de endpoints
-│   ├── DEPLOYMENT.md      # Guía de despliegue y configuración
-│   ├── DOCKER.md          # Guía completa de Docker y containerización
-│   └── DIAGRAMS.md        # Diagramas de arquitectura y base de datos
-└── docker/                # Configuración de Docker
-    ├── README.md          # Guía de configuración Docker
-    ├── docker-compose.yml # Configuración de producción
-    ├── docker-compose.dev.yml # Configuración de desarrollo
-    └── Dockerfile         # Imagen Docker (copia)
 ```
 
 ---
